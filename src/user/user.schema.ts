@@ -9,10 +9,10 @@ export class User {
   username: string;
 
   @Prop({required: true, unique: true})
-  email: number;
+  email: string;
 
   @Prop({required: true})
-  passwordHash: string;
+  password: string;
 
   @Prop()
   online: boolean;
