@@ -9,7 +9,9 @@ import { MessageModule } from './message/message.module';
   imports: [
     AuthModule, 
     UserModule, 
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true
+    }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
