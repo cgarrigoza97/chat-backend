@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { MessageModule } from './message/message.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { MessageModule } from './message/message.module';
       }),
       inject: [ConfigService],
     }),
-    MessageModule, 
+    MessageModule,
+    EventsModule, 
   ],
 })
 export class AppModule {}
