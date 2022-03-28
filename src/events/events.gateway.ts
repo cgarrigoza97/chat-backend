@@ -1,5 +1,9 @@
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
-import { Socket } from 'dgram';
+import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { Socket } from 'socket.io';
+import { AuthService } from '../auth/auth.service';
+import { UserService } from '../user/user.service';
+import { MessageService } from '../message/message.service';
+import { MessageDTO } from '../message/dto/index';
 
 @WebSocketGateway(8080, 
   {
@@ -10,19 +14,47 @@ import { Socket } from 'dgram';
     }
   }
 )
-export class EventsGateway {
-  @SubscribeMessage('message')
-  handleMessage(
-    @MessageBody() data: string,
-    @ConnectedSocket() client: Socket,
-  ): string {
-    return 'Hello world!';
+export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  
+  constructor(
+    private authService: AuthService,
+    private userService: UserService,
+    private messageService: MessageService
+  ) {}
+
+  async handleConnection(@ConnectedSocket() client: Socket) {
+    const token = (client.handshake.query['Authentication'] as string).split(' ').pop();
+    const {valid, payload} = this.authService.verifyToken(token);
+
+    if (!valid)
+      return client.disconnect();
+
+    await this.userService.changeUserConnectionStatus(payload.sub, true);
+
+    const users = await this.userService.getUsers();
+
+    client.join(payload.sub);
+
+    client.emit('users-list', users);
   }
 
-  @SubscribeMessage('connection')
-  handleConnection(
+  async handleDisconnect(@ConnectedSocket() client: Socket) 
+  {
+    const token = (client.handshake.query['Authentication'] as string).split(' ').pop();
+    await this.userService.changeUserConnectionStatus(token, false);
+
+    const users = await this.userService.getUsers();
+
+    client.emit('users-list', users);
+  }
+
+  @SubscribeMessage('message')
+  async handleEvent(
+    @MessageBody() dto: MessageDTO,
     @ConnectedSocket() client: Socket,
   ) {
-    console.log('client connected')
+    const message = await this.messageService.saveMessage(dto);
+    client.to(dto.to).emit('message', message);
+    client.to(dto.from).emit('message', message);
   }
 }

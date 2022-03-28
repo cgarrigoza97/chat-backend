@@ -7,6 +7,7 @@ import { UserDocument } from '../user/user.schema';
 import { hash, verify } from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { TokenValidationModel } from './model/index';
 
 @Injectable({})
 export class AuthService {
@@ -55,15 +56,11 @@ export class AuthService {
     async refreshToken(dto: RefreshTokenDto) {
 
         try {
-            const { sub, username, email } = await this.jwt.verifyAsync(dto.refreshToken, {
-                secret: this.config.get<string>('JWT_SECRET')
-            });
-
-            const payload = {
-                sub, 
-                username,
-                email
-            }
+           
+            const { valid, payload } = this.verifyToken(dto.refreshToken);
+            
+            if (!valid)
+                throw new UnauthorizedException("Invalid token");
 
             const accessToken = await this.jwt.signAsync(payload, {
                 expiresIn: '5m',
@@ -83,8 +80,29 @@ export class AuthService {
             throw new UnauthorizedException("Invalid token");
         }
 
-        return ;
+    }
 
+    verifyToken(token: string): TokenValidationModel {
+        try {
+            const { sub, username, email } = this.jwt.verify(token, {
+                secret: this.config.get<string>('JWT_SECRET')
+            });
+
+            const payload = {
+                sub, 
+                username,
+                email
+            }
+
+            return {
+                valid: true,
+                payload,
+            }
+        } catch (error) {
+            return {
+                valid: false,
+            }
+        }
     }
 
     private async signToken(userId: string, username: string, email: string): Promise<AuthResponseDto> {
